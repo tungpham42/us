@@ -84,7 +84,7 @@ export class GeminiService {
     
     Provide a brief evaluation and explanation. Do NOT reveal the correct answer if the user was wrong.
     Format your response exactly like this:
-    Evaluation: [Correct/Incorrect] | Explanation: [brief explanation without giving away the answer]`;
+    Evaluation: [Correct/Incorrect]. Explanation: [brief explanation without giving away the answer]`;
 
     try {
       const result = await this.model.generateContent(prompt);
