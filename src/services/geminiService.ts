@@ -1,0 +1,127 @@
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { ExamQuestion } from "../types";
+
+const API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
+const genAI = new GoogleGenerativeAI(API_KEY || "");
+
+export class GeminiService {
+  private model = genAI.getGenerativeModel({
+    model: "gemini-2.5-pro-preview-03-25",
+  });
+
+  async generateExamQuestion(category?: string): Promise<ExamQuestion> {
+    const categories = [
+      "Principles of American Democracy",
+      "System of Government",
+      "Rights and Responsibilities",
+      "American History: Colonial Period and Independence",
+      "American History: 1800s",
+      "Recent American History and Other Important Historical Information",
+      "Integrated Civics: Geography",
+      "Integrated Civics: Symbols",
+      "Integrated Civics: Holidays",
+    ];
+    const selectedCategory =
+      category || categories[Math.floor(Math.random() * categories.length)];
+
+    const prompt = `Generate a realistic US citizenship exam question about ${selectedCategory}. 
+    IMPORTANT: Do NOT include the correct answer in the question text. Only provide the question.
+    Format your response exactly like this:
+    Question: [question text only]
+    Correct Answer: [answer]
+    Category: ${selectedCategory}`;
+
+    try {
+      const result = await this.model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text();
+
+      return this.parseQuestionResponse(text, selectedCategory);
+    } catch (error) {
+      console.error("Error generating question:", error);
+      return this.getFallbackQuestion(selectedCategory);
+    }
+  }
+
+  private parseQuestionResponse(
+    response: string,
+    category: string
+  ): ExamQuestion {
+    const lines = response.split("\n");
+    let question = "";
+    let correctAnswer = "";
+
+    for (const line of lines) {
+      if (line.startsWith("Question:")) {
+        question = line.replace("Question:", "").trim();
+      } else if (line.startsWith("Correct Answer:")) {
+        correctAnswer = line.replace("Correct Answer:", "").trim();
+      }
+    }
+
+    // If parsing failed, use fallback
+    if (!question || !correctAnswer) {
+      return this.getFallbackQuestion(category);
+    }
+
+    return {
+      id: Date.now().toString(),
+      question,
+      correctAnswer,
+      category,
+    };
+  }
+
+  async evaluateAnswer(
+    question: string,
+    userAnswer: string,
+    correctAnswer?: string
+  ): Promise<string> {
+    const prompt = `Evaluate this citizenship exam answer. 
+    Question: ${question}
+    User's Answer: ${userAnswer}
+    ${correctAnswer ? `Correct Answer: ${correctAnswer}` : ""}
+    
+    Provide a brief evaluation and explanation. Do NOT reveal the correct answer if the user was wrong.
+    Format your response exactly like this:
+    Evaluation: [Correct/Incorrect] | Explanation: [brief explanation without giving away the answer]`;
+
+    try {
+      const result = await this.model.generateContent(prompt);
+      const response = await result.response;
+      return response.text();
+    } catch (error) {
+      console.error("Error evaluating answer:", error);
+      return "Evaluation: Unable to evaluate at this time. Please try again.";
+    }
+  }
+
+  private getFallbackQuestion(category: string): ExamQuestion {
+    const fallbackQuestions = {
+      "American Government": {
+        question: "What is the supreme law of the land?",
+        correctAnswer: "The Constitution",
+        category: "American Government",
+      },
+      "American History": {
+        question: "What is one reason colonists came to America?",
+        correctAnswer: "Freedom",
+        category: "American History",
+      },
+      "Integrated Civics": {
+        question: "What is the capital of the United States?",
+        correctAnswer: "Washington D.C.",
+        category: "Integrated Civics",
+      },
+    };
+
+    const question =
+      fallbackQuestions[category as keyof typeof fallbackQuestions] ||
+      fallbackQuestions["American Government"];
+
+    return {
+      id: Date.now().toString(),
+      ...question,
+    };
+  }
+}
