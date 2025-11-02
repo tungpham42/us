@@ -235,9 +235,68 @@ export const CitizenshipChatbot: React.FC = () => {
 
       message.info("Listening... Speak now.");
       const transcript = await voiceService.current.startListening();
-      if (transcript) {
-        setInputText(transcript);
+
+      if (transcript && transcript.trim()) {
         message.success("Voice input received");
+
+        // Create user message directly
+        const userMessage: ChatMessage = {
+          id: Date.now().toString(),
+          content: transcript,
+          sender: "user",
+          timestamp: new Date(),
+          type: "text",
+        };
+
+        setMessages((prev) => [...prev, userMessage]);
+        setIsLoading(true);
+
+        try {
+          // Stop any current speech before processing new message
+          if (voiceService.current.isCurrentlySpeaking?.()) {
+            voiceService.current.stop();
+          }
+
+          // Evaluate the answer
+          const evaluation = await geminiService.current.evaluateAnswer(
+            currentQuestion!.question,
+            transcript,
+            currentQuestion!.correctAnswer
+          );
+
+          const evaluationMessage: ChatMessage = {
+            id: (Date.now() + 1).toString(),
+            content: evaluation,
+            sender: "bot",
+            timestamp: new Date(),
+            type: "text",
+          };
+
+          setMessages((prev) => [...prev, evaluationMessage]);
+
+          // Update score
+          if (evaluation.includes("Evaluation: Correct")) {
+            setScore((prev) => ({
+              ...prev,
+              correct: prev.correct + 1,
+              total: prev.total + 1,
+            }));
+          } else if (evaluation.includes("Evaluation: Incorrect")) {
+            setScore((prev) => ({ ...prev, total: prev.total + 1 }));
+          }
+
+          await speakMessage(evaluation);
+
+          // Generate new question after a brief delay
+          setTimeout(() => {
+            generateNewQuestion();
+          }, 2000);
+        } catch (error) {
+          console.error("Error processing voice message:", error);
+          message.error("Error evaluating answer. Please try again.");
+        } finally {
+          setIsLoading(false);
+        }
       } else {
         message.warning("No speech detected. Please try again.");
       }
@@ -507,6 +566,7 @@ export const CitizenshipChatbot: React.FC = () => {
                       !browserSupport.recognition ||
                       !currentQuestion
                     }
+                    loading={isLoading} // Add loading state
                     title={
                       !browserSupport.recognition
                         ? "Speech recognition not supported"
