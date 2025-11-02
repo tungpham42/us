@@ -58,7 +58,7 @@ export const CitizenshipChatbot: React.FC = () => {
   const [availableVoices, setAvailableVoices] = useState<string[]>([]);
 
   const geminiService = useRef(new GeminiService());
-  const voiceService = useRef(new VoiceService());
+  const voiceService = useRef(new VoiceService(geminiService.current)); // Pass GeminiService instance
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

@@ -9,6 +9,11 @@ export class GeminiService {
     model: "gemini-2.5-flash",
   });
 
+  // Add TTS model for speech synthesis
+  private ttsModel = genAI.getGenerativeModel({
+    model: "gemini-2.5-flash-tts",
+  });
+
   async generateExamQuestion(category?: string): Promise<ExamQuestion> {
     const categories = [
       "Principles of American Democracy",
@@ -93,6 +98,39 @@ export class GeminiService {
     } catch (error) {
       console.error("Error evaluating answer:", error);
       return "Evaluation: Unable to evaluate at this time. Please try again.";
+    }
+  }
+
+  // New method for TTS using Gemini
+  async generateSpeech(
+    text: string,
+    settings: { gender: "male" | "female"; rate: number; pitch: number }
+  ): Promise<ArrayBuffer> {
+    try {
+      // Convert gender to voice configuration for Gemini TTS
+      const voiceConfig =
+        settings.gender === "male" ? "androgynous" : "feminine";
+
+      const prompt = {
+        text: text,
+        config: {
+          voice: {
+            preset_voice: voiceConfig,
+          },
+          speed: settings.rate,
+          pitch: settings.pitch,
+        },
+      };
+
+      const result = await this.ttsModel.generateContent(prompt as any);
+      const response = await result.response;
+
+      // Convert text response to ArrayBuffer
+      const audioData = new TextEncoder().encode(response.text()).buffer;
+      return audioData;
+    } catch (error) {
+      console.error("Error generating speech with Gemini TTS:", error);
+      throw new Error("Failed to generate speech");
     }
   }
 

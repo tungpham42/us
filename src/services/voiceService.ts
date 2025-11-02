@@ -1,11 +1,15 @@
+import { GeminiService } from "./geminiService";
+
 export class VoiceService {
   private synth = window.speechSynthesis;
   private currentUtterance: SpeechSynthesisUtterance | null = null;
   private voices: SpeechSynthesisVoice[] = [];
   private voicesLoaded: boolean = false;
   private isSpeaking: boolean = false;
+  private geminiService: GeminiService;
 
-  constructor() {
+  constructor(geminiService: GeminiService) {
+    this.geminiService = geminiService;
     this.loadVoices();
 
     // Some browsers load voices asynchronously
@@ -79,75 +83,116 @@ export class VoiceService {
     settings: { gender: "male" | "female"; rate: number; pitch: number }
   ): Promise<void> {
     return new Promise(async (resolve, reject) => {
-      if (!this.isSpeechSupported()) {
-        reject(new Error("Speech synthesis not supported"));
-        return;
-      }
-
-      // Ensure voices are loaded
-      await this.ensureVoicesLoaded();
-
-      if (this.voices.length === 0) {
-        reject(new Error("No voices available"));
-        return;
-      }
-
-      // Stop any current speech
-      if (this.isSpeaking) {
-        this.stop();
-        // Add a small delay to ensure clean state
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      }
-
-      this.currentUtterance = new SpeechSynthesisUtterance(text);
-      this.isSpeaking = true;
-
-      // Get the best matching voice for the selected gender
-      const voice = this.findBestVoice(settings.gender);
-      if (voice) {
-        this.currentUtterance.voice = voice;
-        console.log(
-          `Using voice: "${voice.name}" for gender: ${settings.gender}`
-        );
-      } else {
-        console.warn("No preferred voice found, using default");
-      }
-
-      this.currentUtterance.rate = settings.rate;
-      this.currentUtterance.pitch = settings.pitch;
-      this.currentUtterance.volume = 1;
-
-      this.currentUtterance.onend = () => {
-        console.log("Speech finished");
-        this.isSpeaking = false;
-        this.currentUtterance = null;
-        resolve();
-      };
-
-      this.currentUtterance.onerror = (event) => {
-        console.error("Speech error:", event);
-        this.isSpeaking = false;
-        this.currentUtterance = null;
-
-        // Don't reject for cancellation errors - they're usually intentional
-        if (event.error === "canceled") {
-          console.log("Speech was intentionally canceled");
-          resolve(); // Resolve instead of reject for cancellations
-        } else {
-          reject(new Error(`Speech synthesis failed: ${event.error}`));
-        }
-      };
-
       try {
-        this.synth.speak(this.currentUtterance);
-        console.log("Speech started with settings:", settings);
+        // Use Gemini TTS for speech generation
+        const audioData = await this.geminiService.generateSpeech(
+          text,
+          settings
+        );
+
+        // Create audio context and play the audio
+        const audioContext = new (window.AudioContext ||
+          (window as any).webkitAudioContext)();
+        const audioBuffer = await audioContext.decodeAudioData(audioData);
+
+        const source = audioContext.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(audioContext.destination);
+
+        this.isSpeaking = true;
+
+        source.onended = () => {
+          console.log("Gemini TTS speech finished");
+          this.isSpeaking = false;
+          resolve();
+        };
+
+        source.start(0);
+        console.log("Gemini TTS speech started with settings:", settings);
       } catch (error) {
-        console.error("Error starting speech:", error);
-        this.isSpeaking = false;
-        this.currentUtterance = null;
-        reject(error);
+        console.error("Error with Gemini TTS:", error);
+
+        // Fallback to browser speech synthesis if Gemini TTS fails
+        console.log("Falling back to browser speech synthesis...");
+        await this.fallbackSpeak(text, settings, resolve, reject);
       }
     });
+  }
+
+  private async fallbackSpeak(
+    text: string,
+    settings: { gender: "male" | "female"; rate: number; pitch: number },
+    resolve: () => void,
+    reject: (error: any) => void
+  ): Promise<void> {
+    if (!this.isSpeechSupported()) {
+      reject(new Error("Speech synthesis not supported"));
+      return;
+    }
+
+    // Ensure voices are loaded
+    await this.ensureVoicesLoaded();
+
+    if (this.voices.length === 0) {
+      reject(new Error("No voices available"));
+      return;
+    }
+
+    // Stop any current speech
+    if (this.isSpeaking) {
+      this.stop();
+      // Add a small delay to ensure clean state
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    this.currentUtterance = new SpeechSynthesisUtterance(text);
+    this.isSpeaking = true;
+
+    // Get the best matching voice for the selected gender
+    const voice = this.findBestVoice(settings.gender);
+    if (voice) {
+      this.currentUtterance.voice = voice;
+      console.log(
+        `Using fallback voice: "${voice.name}" for gender: ${settings.gender}`
+      );
+    } else {
+      console.warn("No preferred voice found, using default");
+    }
+
+    this.currentUtterance.rate = settings.rate;
+    this.currentUtterance.pitch = settings.pitch;
+    this.currentUtterance.volume = 1;
+
+    this.currentUtterance.onend = () => {
+      console.log("Fallback speech finished");
+      this.isSpeaking = false;
+      this.currentUtterance = null;
+      resolve();
+    };
+
+    this.currentUtterance.onerror = (event) => {
+      console.error("Fallback speech error:", event);
+      this.isSpeaking = false;
+      this.currentUtterance = null;
+
+      // Don't reject for cancellation errors - they're usually intentional
+      if (event.error === "canceled") {
+        console.log("Speech was intentionally canceled");
+        resolve(); // Resolve instead of reject for cancellations
+      } else {
+        reject(new Error(`Speech synthesis failed: ${event.error}`));
+      }
+    };
+
+    try {
+      this.synth.speak(this.currentUtterance);
+      console.log("Fallback speech started with settings:", settings);
+    } catch (error) {
+      console.error("Error starting fallback speech:", error);
+      this.isSpeaking = false;
+      this.currentUtterance = null;
+      reject(error);
+    }
   }
 
   private findBestVoice(
