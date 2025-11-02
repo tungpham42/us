@@ -6,7 +6,7 @@ const genAI = new GoogleGenerativeAI(API_KEY || "");
 
 export class GeminiService {
   private model = genAI.getGenerativeModel({
-    model: "gemini-2.5-pro-preview-03-25",
+    model: "gemini-2.5-flash",
   });
 
   async generateExamQuestion(category?: string): Promise<ExamQuestion> {
