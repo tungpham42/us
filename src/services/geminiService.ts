@@ -125,7 +125,7 @@ export class GeminiService {
                 ],
               },
             ],
-            generationConfig: {
+            speechConfig: {
               voiceConfig: {
                 presetVoice: voiceConfig,
                 speed: settings.rate,
