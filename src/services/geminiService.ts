@@ -11,7 +11,7 @@ export class GeminiService {
 
   // Add TTS model for speech synthesis
   private ttsModel = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash-tts",
+    model: "gemini-2.5-flash-preview-tts",
   });
 
   async generateExamQuestion(category?: string): Promise<ExamQuestion> {
