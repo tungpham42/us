@@ -9,11 +9,6 @@ export class GeminiService {
     model: "gemini-2.5-flash",
   });
 
-  // Add TTS model for speech synthesis
-  private ttsModel = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash-preview-tts",
-  });
-
   async generateExamQuestion(category?: string): Promise<ExamQuestion> {
     const categories = [
       "Principles of American Democracy",
@@ -111,23 +106,55 @@ export class GeminiService {
       const voiceConfig =
         settings.gender === "male" ? "androgynous" : "feminine";
 
-      const prompt = {
-        text: text,
-        config: {
-          voice: {
-            preset_voice: voiceConfig,
+      // For TTS, we need to use the appropriate API endpoint
+      // Note: Gemini TTS API might be different - check the actual API documentation
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${API_KEY}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
           },
-          speed: settings.rate,
-          pitch: settings.pitch,
-        },
-      };
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  {
+                    text: text,
+                  },
+                ],
+              },
+            ],
+            generationConfig: {
+              voiceConfig: {
+                presetVoice: voiceConfig,
+                speed: settings.rate,
+                pitch: settings.pitch,
+              },
+            },
+          }),
+        }
+      );
 
-      const result = await this.ttsModel.generateContent(prompt as any);
-      const response = await result.response;
+      if (!response.ok) {
+        throw new Error(`TTS API error: ${response.status}`);
+      }
 
-      // Convert text response to ArrayBuffer
-      const audioData = new TextEncoder().encode(response.text()).buffer;
-      return audioData;
+      const data = await response.json();
+
+      // The actual structure will depend on Gemini TTS API response
+      // This is a placeholder - adjust based on actual API response
+      if (data.audioContent) {
+        // Convert base64 to ArrayBuffer
+        const binaryString = atob(data.audioContent);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes.buffer;
+      } else {
+        throw new Error("No audio content in response");
+      }
     } catch (error) {
       console.error("Error generating speech with Gemini TTS:", error);
       throw new Error("Failed to generate speech");
