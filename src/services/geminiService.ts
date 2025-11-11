@@ -97,48 +97,42 @@ export class GeminiService {
   }
 
   // New method for TTS using Gemini
+  // Inside GeminiService class
   async generateSpeech(
     text: string,
     settings: { gender: "male" | "female"; rate: number; pitch: number }
   ): Promise<ArrayBuffer> {
     try {
-      // Convert gender to voice configuration for Gemini TTS
-      const voiceGender =
-        settings.gender === "male" ? "en-US-Standard-A" : "	en-US-Standard-E";
+      // 1. Map gender to a standard TTS voice name
+      const voiceName =
+        settings.gender === "male" ? "en-US-Standard-C" : "en-US-Standard-E"; // Use standard, supported voice names
 
-      // For TTS, we need to use the appropriate API endpoint
-      // Note: Gemini TTS API might be different - check the actual API documentation
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${API_KEY}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
+      // 2. Use the correct Google Cloud Text-to-Speech endpoint
+      const TTS_ENDPOINT =
+        "https://texttospeech.googleapis.com/v1/text:synthesize";
+
+      const response = await fetch(`${TTS_ENDPOINT}?key=${API_KEY}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          // 3. Use the correct Text-to-Speech request body structure
+          input: {
+            text: text,
           },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  {
-                    text: text,
-                  },
-                ],
-              },
-            ],
-            voiceConfig: {
-              voiceName: voiceGender, // or any supported voice
-              rate: settings.rate,
-              pitch: settings.pitch,
-            },
-            audioConfig: {
-              audioEncoding: "MP3", // or "MP3", "OGG_OPUS"
-            },
-            generationConfig: {
-              temperature: 0.7,
-            },
-          }),
-        }
-      );
+          voice: {
+            languageCode: "en-US",
+            name: voiceName,
+            // rate and pitch are usually applied via 'voice' or 'audioConfig' but standard Cloud TTS handles this implicitly
+          },
+          audioConfig: {
+            audioEncoding: "MP3",
+            speakingRate: settings.rate, // Correct field for rate
+            pitch: settings.pitch, // Correct field for pitch
+          },
+        }),
+      });
 
       if (!response.ok) {
         throw new Error(`TTS API error: ${response.status}`);
@@ -146,8 +140,6 @@ export class GeminiService {
 
       const data = await response.json();
 
-      // The actual structure will depend on Gemini TTS API response
-      // This is a placeholder - adjust based on actual API response
       if (data.audioContent) {
         // Convert base64 to ArrayBuffer
         const binaryString = atob(data.audioContent);
@@ -160,7 +152,7 @@ export class GeminiService {
         throw new Error("No audio content in response");
       }
     } catch (error) {
-      console.error("Error generating speech with Gemini TTS:", error);
+      console.error("Error generating speech with Cloud TTS:", error);
       throw new Error("Failed to generate speech");
     }
   }
