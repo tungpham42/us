@@ -103,8 +103,8 @@ export class GeminiService {
   ): Promise<ArrayBuffer> {
     try {
       // Convert gender to voice configuration for Gemini TTS
-      // const voiceConfig =
-      //   settings.gender === "male" ? "androgynous" : "feminine";
+      const voiceGender =
+        settings.gender === "male" ? "en-US-Standard-A" : "	en-US-Standard-E";
 
       // For TTS, we need to use the appropriate API endpoint
       // Note: Gemini TTS API might be different - check the actual API documentation
@@ -125,13 +125,16 @@ export class GeminiService {
                 ],
               },
             ],
+            voiceConfig: {
+              voiceName: voiceGender, // or any supported voice
+              rate: settings.rate,
+              pitch: settings.pitch,
+            },
+            audioConfig: {
+              audioEncoding: "MP3", // or "MP3", "OGG_OPUS"
+            },
             generationConfig: {
-              voiceConfig: {
-                voiceName: "en-US-Standard-A", // or any supported voice
-              },
-              audioConfig: {
-                audioEncoding: "MP3", // or "MP3", "OGG_OPUS"
-              },
+              temperature: 0.7,
             },
           }),
         }
