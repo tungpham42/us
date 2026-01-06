@@ -27,7 +27,7 @@ import {
   BugOutlined,
 } from "@ant-design/icons";
 import { ChatMessage, VoiceSettings, ExamQuestion } from "../types";
-import { GeminiService } from "../services/geminiService";
+import { GroqService } from "../services/groqService";
 import { VoiceService } from "../services/voiceService";
 import { LipSyncFace } from "./LipSyncFace";
 
@@ -57,7 +57,7 @@ export const CitizenshipChatbot: React.FC = () => {
   const [debugVisible, setDebugVisible] = useState(false);
   const [availableVoices, setAvailableVoices] = useState<string[]>([]);
 
-  const geminiService = useRef(new GeminiService());
+  const groqService = useRef(new GroqService());
   const voiceService = useRef(new VoiceService());
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -116,7 +116,7 @@ export const CitizenshipChatbot: React.FC = () => {
 
   const generateNewQuestion = async () => {
     try {
-      const question = await geminiService.current.generateExamQuestion();
+      const question = await groqService.current.generateExamQuestion();
       setCurrentQuestion(question);
 
       const questionMessage: ChatMessage = {
@@ -179,7 +179,7 @@ export const CitizenshipChatbot: React.FC = () => {
       }
 
       // Evaluate the answer
-      const evaluation = await geminiService.current.evaluateAnswer(
+      const evaluation = await groqService.current.evaluateAnswer(
         currentQuestion.question,
         inputText,
         currentQuestion.correctAnswer
@@ -258,7 +258,7 @@ export const CitizenshipChatbot: React.FC = () => {
           }
 
           // Evaluate the answer
-          const evaluation = await geminiService.current.evaluateAnswer(
+          const evaluation = await groqService.current.evaluateAnswer(
             currentQuestion!.question,
             transcript,
             currentQuestion!.correctAnswer
