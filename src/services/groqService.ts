@@ -36,7 +36,7 @@ export class GroqService {
       });
 
       // Extract the 'response' text field specifically
-      const text = response.data?.response || "";
+      const text = response.data?.result || "";
 
       if (typeof text !== "string") {
         console.error(
@@ -103,7 +103,7 @@ export class GroqService {
 
       // FIX IS HERE: Extract only the 'response' string property
       // Previously it returned the whole object (response.data) causing the React error
-      const text = response.data?.response;
+      const text = response.data?.result;
 
       // Fallback if text is missing or not a string
       return typeof text === "string"
